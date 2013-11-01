@@ -1,0 +1,125 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <title>DX:HR Hack</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #000000;
+    }
+  </style>
+  <script src='js/Underscore-min.js'></script>
+  <script src='js/pixi.js'></script>
+  <script src='js/classes.js'></script>
+
+</head>
+<body>
+  <script>
+  
+  // create an new instance of a pixi stage
+  var stage = new PIXI.Stage(0x66FF99, true),
+    stageWidth = 1200,
+    stageHeight = 700,
+    nodeSize = 24,
+    lineLength = 0;
+  // create a renderer instance
+  var renderer = new PIXI.autoDetectRenderer(stageWidth, stageHeight, undefined, undefined, true);
+  
+  var heightRatio = window.innerHeight / stageHeight,
+    widthRatio = window.innerWidth / stageWidth,
+    zoomRatio = 1,//Math.min(heightRatio, widthRatio),
+    cssHeight = stageHeight * zoomRatio,
+    cssWidth = stageWidth * zoomRatio,
+    cssMarginHeight = (window.innerHeight - cssHeight) / 2,
+    cssMarginWidth = (window.innerWidth - cssWidth) / 2;
+
+  // set the canvas width and height to fill the screen
+  renderer.view.style.width = (stageWidth * zoomRatio) + 'px';
+  renderer.view.style.height = (stageHeight * zoomRatio) + 'px';
+  renderer.view.style.marginTop = cssMarginHeight + 'px';
+  renderer.view.style.marginLeft = cssMarginWidth + 'px';
+  renderer.view.style.display = 'block';
+  
+  // add the renderer view element to the DOM
+  document.body.appendChild(renderer.view);
+  
+  requestAnimFrame( animate );
+  
+  var textures = loadTextures(),
+    sprites = setupSprites(stage, textures);
+
+  function animate() {
+      requestAnimFrame( animate );
+  
+      sprites.background.position.x = -((Math.abs(sprites.background.position.x) + 0.05) % 256);
+      sprites.background.position.y = -((Math.abs(sprites.background.position.y) + 0.05) % 256);
+
+      _.each(stage.children, function(child) {
+        if (child.update) {
+          child.update();
+        }
+      });
+
+      renderer.render(stage);
+  }
+
+  function loadTextures() {
+    return {
+      background: PIXI.Texture.fromImage('images/circuitry_tile.png'),
+      blankNode: PIXI.Texture.fromImage('images/blank.png'),
+      criticalNode: PIXI.Texture.fromImage('images/critical.png'),
+      dataNode: PIXI.Texture.fromImage('images/datastore.png'),
+      securityNode: PIXI.Texture.fromImage('images/security.png'),
+      startNode: PIXI.Texture.fromImage('images/start.png'),
+      utilityNode: PIXI.Texture.fromImage('images/utility.png')
+    };
+  }
+
+  function setupSprites(stage, textures) {
+    var sprites = {};
+
+    sprites.background = new PIXI.TilingSprite(textures.background, stageWidth + 256, stageHeight + 256);
+    stage.addChild(sprites.background);
+
+    var startNode = new PIXI.StartNode(200, 330, 1),
+      utilityNode1 = new PIXI.TransferNode(350, 340, 1),
+      blankNode1 = new PIXI.BlankNode(350, 190, 3),
+      blankNode2 = new PIXI.BlankNode(350, 490, 2),
+      dataNode = new PIXI.DataNode(500, 350, 1),
+      utilityNode2 = new PIXI.UtilityNode(500, 200, 1),
+      utilityNode3 = new PIXI.UtilityNode(500, 500, 1),
+      blankNode3 = new PIXI.BlankNode(650, 210, 1),
+      blankNode4 = new PIXI.BlankNode(650, 510, 1),
+      securityNode = new PIXI.SecurityNode(650, 360, 1),
+      criticalNode = new PIXI.CriticalNode(800, 370, 1);
+
+    startNode.addConnection(utilityNode1, true);
+    utilityNode1.addConnection(blankNode1);
+    utilityNode1.addConnection(blankNode2);
+    blankNode1.addConnection(dataNode, true);
+    blankNode2.addConnection(dataNode, true);
+    blankNode1.addConnection(utilityNode2);
+    blankNode2.addConnection(utilityNode3);
+    utilityNode2.addConnection(blankNode3);
+    utilityNode3.addConnection(blankNode4);
+    securityNode.addConnection(blankNode3, true);
+    securityNode.addConnection(blankNode4, true);
+    securityNode.addConnection(criticalNode, true);
+    blankNode3.addConnection(criticalNode, true);
+    blankNode4.addConnection(criticalNode, true);
+
+    _.each(MAP_LINES, function(lineObj) {
+      stage.addChild(lineObj.line);
+    });
+
+    _.each(NODE_MAP, function(sprite) {
+      stage.addChild(sprite);
+    });
+
+    return sprites;
+  }
+  </script>
+
+  </body>
+</html>
