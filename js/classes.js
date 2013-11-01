@@ -83,7 +83,7 @@ PIXI.NodeConnector = function(nodeLineWidth, point1, point2, isOneWay) {
   this.angle = point1.getAngle(point2);
   this.lineLength = point1.getDistance(point2);
 
-  this.activeColor = null;
+  this.activatingEntity = null;
   this.activePercent = 0;
   this.isActive = false;
   this.callback = null;
@@ -98,7 +98,7 @@ PIXI.NodeConnector.prototype.ACTIVE_GROWTH_PERCENT = 0.01;
 
 PIXI.NodeConnector.prototype.update = function update() {
   if (this.isActive) {
-    this.activePercent = Math.min(1, this.activePercent + this.ACTIVE_GROWTH_PERCENT);
+    this.activePercent = Math.min(1, this.activePercent + (this.ACTIVE_GROWTH_PERCENT * this.activatingEntity.speedAdjustment));
     this.isActive = this.activePercent < 1;
     this.drawLine();
     if (!this.isActive && this.callback) {
@@ -111,9 +111,8 @@ PIXI.NodeConnector.prototype.setColor = function setColor(color) {
   this.lineStyle(this.nodeLineWidth, color);
 };
 
-PIXI.NodeConnector.prototype.setActive = function setActive(speed, color, callback) {
-  this.activeColor = color;
-  this.ACTIVE_GROWTH_PERCENT = speed;
+PIXI.NodeConnector.prototype.setActive = function setActive(activatingEntity, callback) {
+  this.activatingEntity = activatingEntity;
 
   this.callback = callback;
   this.isActive = true;
@@ -147,10 +146,10 @@ PIXI.NodeConnector.prototype.drawSolidLine = function drawSolidLine() {
   this.moveToPoint(this.point1);
   this.lineToPoint(this.point2);
 
-  if (this.activeColor) {
+  if (this.activatingEntity) {
     var maxDistance = this.lineLength * (this.activePercent === undefined ? 1 : this.activePercent),
       p = this.point1.getPointAtAngle(this.angle, maxDistance);
-    this.setColor(this.activeColor);
+    this.setColor(this.activatingEntity.color);
     this.moveToPoint(this.point1);
     this.lineToPoint(p);
   }
@@ -181,8 +180,8 @@ PIXI.NodeConnector.prototype._drawDashedLine = function _drawDashedLine(point1, 
 PIXI.NodeConnector.prototype.drawDashedLine = function drawDashedLine() {
   this.setColor(this.NEUTRAL_COLOR);
   this._drawDashedLine(this.point1, this.point2);
-  if (this.activeColor) {
-    this.setColor(this.activeColor);
+  if (this.activatingEntity) {
+    this.setColor(this.activatingEntity.color);
     this._drawDashedLine(this.point1, this.point2, this.activePercent);
   }
 };
@@ -199,49 +198,62 @@ PIXI.NodeConnector.prototype.drawDashedLine = function drawDashedLine() {
 */
 PIXI.NodeIcon = function (texture, nodeSize) {
   PIXI.DisplayObjectContainer.call(this);
+  this.nodeSize = nodeSize;
 
-  var base = new PIXI.Graphics();
-  base.beginFill(0x998F8D);
-  base.lineStyle(5, 0xC3B7B3);
-  var baseTop = 2;
-  base.moveTo(nodeSize / 2, baseTop);
-  base.lineTo(-nodeSize / 2, baseTop);
-  base.lineTo(-nodeSize, baseTop + 10);
-  base.lineTo(-nodeSize / 2, baseTop + 20);
-  base.lineTo(nodeSize / 2, baseTop + 20);
-  base.lineTo(nodeSize, baseTop + 10);
-  base.lineTo(nodeSize / 2, baseTop);
+  this.drawBase();
+  this.drawBadge();
 
   var icon = new PIXI.Sprite(texture, 0, 0);
   icon.anchor.x = 0.5;
   icon.anchor.y = 0.5;
 
-  var badge = new PIXI.Graphics();
-  badge.lineStyle(0);
-  badge.beginFill(0x000000, 0.8);
-  var badgeSize = 10;
-  badge.drawCircle(nodeSize, 0, badgeSize);
-
-  if (badge.children.length) {
-    badge.removeChild(badge.children[0]);
-  }
-
-  if (this.parent) {
-    var rankText = new PIXI.Text(this.parent.rank, {font: "12px Snippet", fill: "white", align: "center"});
-    rankText.position.x = nodeSize - 2;
-    rankText.position.y = -8;
-    badge.addChild(rankText);
-  }
-
-  this.addChild(base);
-  this.addChild(badge);
+  this.addChild(this.base);
+  this.addChild(this.badge);
   this.addChild(icon);
 };
 PIXI.NodeIcon.prototype = Object.create(PIXI.DisplayObjectContainer.prototype);
 PIXI.NodeIcon.prototype.constructor = PIXI.NodeIcon;
 
-PIXI.NodeIcon.update = function update() {
-  
+PIXI.NodeIcon.prototype.drawBase = function() {
+  var baseTop = 2;
+  this.base = this.base || new PIXI.Graphics();
+
+  this.base.clear();
+  this.base.beginFill(0x998F8D);
+  this.base.lineStyle(5, 0xC3B7B3);
+  this.base.moveTo(this.nodeSize / 2, baseTop);
+  this.base.lineTo(-this.nodeSize / 2, baseTop);
+  this.base.lineTo(-this.nodeSize, baseTop + 10);
+  this.base.lineTo(-this.nodeSize / 2, baseTop + 20);
+  this.base.lineTo(this.nodeSize / 2, baseTop + 20);
+  this.base.lineTo(this.nodeSize, baseTop + 10);
+  this.base.lineTo(this.nodeSize / 2, baseTop);
+  this.base.endFill();
+};
+PIXI.NodeIcon.prototype.drawBadge = function() {
+  this.badge = this.badge || new PIXI.Graphics();
+
+  this.badge.clear();
+  this.badge.lineStyle(0);
+  this.badge.beginFill(0x000000, 0.8);
+  var badgeSize = 10;
+  this.badge.drawCircle(this.nodeSize, 0, badgeSize);
+  this.badge.endFill();
+
+  if (this.badge.children.length) {
+    this.badge.removeChild(this.badge.children[0]);
+  }
+
+  var rankText = this.parent ? this.parent.rank : '';
+
+  var badgeText = new PIXI.Text(rankText, {font: "12px Snippet", fill: "white", align: "center"});
+  badgeText.position.x = this.nodeSize - 2;
+  badgeText.position.y = -8;
+  this.badge.addChild(badgeText);
+};
+
+PIXI.NodeIcon.prototype.update = function update() {
+  this.drawBadge();
 };
 
 /*
@@ -333,47 +345,9 @@ PIXI.Node.prototype.addConnection = function addConnection(node, isOneWay) {
   }
 };
 
-var _doAIDetectionRoll = function _doAIDetectionRoll(targetNumber) {
-  var aiRoll = _.random(1, 100);
-  console.log(aiRoll, '<', targetNumber);
-  if (aiRoll < targetNumber) {
-    GAME_ENTITIES.AI.active = true;
-    _.each(NODE_MAP, function (n) {
-      if (n.controlled[GAME_ENTITIES.AI.id]) {
-        var targetNodes = n.getTargetNodes();
-        _.each(targetNodes, function(target) {
-          target.activate(GAME_ENTITIES.AI);
-        });
-      }
-    });
-  }
-};
-
-var _doCaptureDetectionCheck = function _doCaptureDetectionCheck(node, activatingEntity) {
-  if (!GAME_ENTITIES.AI.active && activatingEntity.equals(GAME_ENTITIES.PC) && node.rank > 0) {
-    var detection = 50 + (20 * node.rank - 10 * activatingEntity.capture - 15 * activatingEntity.stealth);
-    detection = Math.max(15, Math.min(100, detection));
-    _doAIDetectionRoll(detection);
-  }
-};
-
-var _doFortifyDetectionCheck = function _doFortifyDetectionCheck(node, activatingEntity) {
-  if (!GAME_ENTITIES.AI.active && activatingEntity.equals(GAME_ENTITIES.PC) && node.rank > 0) {
-    var detection = 50 + (20 * node.rank - 10 * activatingEntity.fortify - 15 * activatingEntity.stealth);
-    detection = Math.max(15, Math.min(100, detection));
-    _doAIDetectionRoll(detection);
-  }
-};
-
-var _expandAIControl = function _expandAIControl(node, activatingEntity) {
-  if (activatingEntity.equals(GAME_ENTITIES.AI)) {
-    _.each(node.getTargetNodes(), function(target) {
-      target.activate(GAME_ENTITIES.AI);
-    });
-  }
-};
-
-PIXI.Node.getLineConnectedCallback = function getLineConnectedCallback(node, activatingEntity) {
+// var speed = ((15 * activatingEntity.stealth + 10 * activatingEntity.capture) / (this.rank + 1)) / 300,
+PIXI.Node.prototype.getLineConnectedCallback = function getLineConnectedCallback(activatingEntity) {
+  var node = this;
   return function() {
     node.controlled[activatingEntity.id] = true;
     _doCaptureDetectionCheck(node, activatingEntity);
@@ -410,10 +384,9 @@ PIXI.Node.prototype.getTargetNodes = function getTargetNodes() {
 
 PIXI.Node.prototype.activate = function activate(activatingEntity) {
   var foundPairs = [],
-    callback = PIXI.Node.getLineConnectedCallback(this, activatingEntity);
+    callback = this.getLineConnectedCallback(activatingEntity);
   // if it's already controlled or activated by the activating entity, bail off
-  var speed = ((15 * activatingEntity.stealth + 10 * activatingEntity.capture) / (this.rank + 1)) / 300,
-    id = this.id;
+  var id = this.id;
   if (this.controlled[activatingEntity.id] ||
         this.activated[activatingEntity.id]) {
     return;
@@ -422,7 +395,7 @@ PIXI.Node.prototype.activate = function activate(activatingEntity) {
   var isActivated = false;
   _.each(MAP_LINES, function(mapLine) {
     var validline = false;
-    if (!mapLine.line.activeColor) {
+    if (!mapLine.line.activatingEntity) {
       if (mapLine.starting.id === id &&
             !mapLine.line.isOneWay &&
             mapLine.ending.controlled[activatingEntity.id] &&
@@ -442,7 +415,7 @@ PIXI.Node.prototype.activate = function activate(activatingEntity) {
       if (mapLine.starting.id === id) {
         mapLine.line.reverse();
       }
-      mapLine.line.setActive(speed, activatingEntity.color, callback);
+      mapLine.line.setActive(activatingEntity, callback);
       isActivated = true;
     }
   });
@@ -614,7 +587,64 @@ PIXI.SpamNode.prototype = Object.create(PIXI.Node.prototype);
 PIXI.SpamNode.prototype.constructor = PIXI.Node;
 PIXI.SpamNode.prototype._nodeSpecificCallback = function _nodeSpecificCallback(node, activatingEntity) {
   if (activatingEntity.equals(GAME_ENTITIES.PC)) {
+    GAME_ENTITIES.AI.speedAdjustment = 0.5;
+    setTimeout(function() {
+      GAME_ENTITIES.AI.speedAdjustment = 1;
+    }, 5000);
     console.log('::waggles fingers::');
     return true;
+  }
+};
+
+/*
+  888     888888   d8b888d8b888            
+  888     888888   Y8P888Y8P888            
+  888     888888      888   888            
+  888     888888888888888888888888888  888 
+  888     888888   888888888888   888  888 
+  888     888888   888888888888   888  888 
+  Y88b. .d88PY88b. 888888888Y88b. Y88b 888 
+   "Y88888P"  "Y888888888888 "Y888 "Y88888 
+                                       888 
+                                  Y8b d88P 
+                                   "Y88P"  
+*/
+var _doAIDetectionRoll = function _doAIDetectionRoll(targetNumber) {
+  var aiRoll = _.random(1, 100);
+  console.log(aiRoll, '<', targetNumber);
+  if (aiRoll < targetNumber) {
+    GAME_ENTITIES.AI.active = true;
+    _.each(NODE_MAP, function (n) {
+      if (n.controlled[GAME_ENTITIES.AI.id]) {
+        var targetNodes = n.getTargetNodes();
+        _.each(targetNodes, function(target) {
+          target.activate(GAME_ENTITIES.AI);
+        });
+      }
+    });
+  }
+};
+
+var _doCaptureDetectionCheck = function _doCaptureDetectionCheck(node, activatingEntity) {
+  if (!GAME_ENTITIES.AI.active && activatingEntity.equals(GAME_ENTITIES.PC) && node.rank > 0) {
+    var detection = 50 + (20 * node.rank - 10 * activatingEntity.capture - 15 * activatingEntity.stealth);
+    detection = Math.max(15, Math.min(100, detection));
+    _doAIDetectionRoll(detection);
+  }
+};
+
+var _doFortifyDetectionCheck = function _doFortifyDetectionCheck(node, activatingEntity) {
+  if (!GAME_ENTITIES.AI.active && activatingEntity.equals(GAME_ENTITIES.PC) && node.rank > 0) {
+    var detection = 50 + (20 * node.rank - 10 * activatingEntity.fortify - 15 * activatingEntity.stealth);
+    detection = Math.max(15, Math.min(100, detection));
+    _doAIDetectionRoll(detection);
+  }
+};
+
+var _expandAIControl = function _expandAIControl(node, activatingEntity) {
+  if (activatingEntity.equals(GAME_ENTITIES.AI)) {
+    _.each(node.getTargetNodes(), function(target) {
+      target.activate(GAME_ENTITIES.AI);
+    });
   }
 };
