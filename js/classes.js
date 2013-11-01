@@ -540,9 +540,11 @@ PIXI.TransferNode.prototype = Object.create(PIXI.Node.prototype);
 PIXI.TransferNode.prototype.constructor = PIXI.Node;
 PIXI.TransferNode.prototype._nodeSpecificCallback = function _nodeSpecificCallback(activatingEntity) {
   if (activatingEntity.equals(GAME_ENTITIES.PC)) {
-    var validNodes = _.filter(NODE_MAP, function() {
-      return !(NODE_MAP[soften] instanceof PIXI.StartNode ||
-                NODE_MAP[soften] instanceof PIXI.SecurityNode)
+    var self = this;
+    var validNodes = _.filter(NODE_MAP, function(node) {
+      return !(node instanceof PIXI.StartNode ||
+                node instanceof PIXI.SecurityNode ||
+                node.id === self.id);
     });
     var max = validNodes.length-1,
       soften = _.random(0, max),
