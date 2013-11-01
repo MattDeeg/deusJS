@@ -1,5 +1,3 @@
-var noop = function noop() {};
-
 /*
   8888888888        888   d8b888            
   888               888   Y8P888            
@@ -34,36 +32,6 @@ var GAME_ENTITIES = {
 };
 
 /*
-  8888888b.         d8b        888    
-  888   Y88b        Y8P        888    
-  888    888                   888    
-  888   d88P .d88b. 88888888b. 888888 
-  8888888P" d88""88b888888 "88b888    
-  888       888  888888888  888888    
-  888       Y88..88P888888  888Y88b.  
-  888        "Y88P" 888888  888 "Y888 
-*/
-PIXI.Point.prototype.getAngle = function getAngle(point) {
-  var angle = Math.atan2(point.y - this.y, point.x - this.x);
-
-  // cache
-  return angle;
-};
-
-PIXI.Point.prototype.getDistance = function getDistance(point) {
-  var distance = Math.sqrt(Math.pow(point.x - this.x, 2) + Math.pow(point.y - this.y, 2));
-
-  return distance;
-};
-
-PIXI.Point.prototype.getPointAtAngle = function getPointAtAngle(angle, distance) {
-  return new PIXI.Point(
-        this.x + Math.cos(angle) * distance,
-        this.y + Math.sin(angle) * distance
-      );
-};
-
-/*
   888b    888             888         .d8888b.                                         888                   
   8888b   888             888        d88P  Y88b                                        888                   
   88888b  888             888        888    888                                        888                   
@@ -89,6 +57,7 @@ PIXI.NodeConnector = function(nodeLineWidth, point1, point2, isOneWay) {
   this.callback = null;
 
   this.drawLine();
+  Log.trace('New NodeConnector created', this);
 };
 
 PIXI.NodeConnector.prototype = Object.create(PIXI.Graphics.prototype);
@@ -286,13 +255,21 @@ PIXI.Node = function (texture, x, y, nodeSize, rank, controlledByPC, controlledB
   this.buttonMode = true;
   this.setInteractive(true);
   this.click = function(data){
-    if (GAME_ENTITIES.PC.active) {
-      self.activate(GAME_ENTITIES.PC);
-      self.fortify(GAME_ENTITIES.PC);
+    var which = data.originalEvent.which;
+    if (which === 1) { // left click
+      if (GAME_ENTITIES.PC.active) {
+        self.activate(GAME_ENTITIES.PC);
+        self.fortify(GAME_ENTITIES.PC);
+      }
     }
+    else if (which === 3) { // right click
+      Log.debug(self);
+    }
+    return false;
   };
 
   NODE_MAP[this.id] = this;
+  Log.trace('New Node created', this);
 };
 
 PIXI.Node.prototype = Object.create(PIXI.DisplayObjectContainer.prototype);
@@ -352,12 +329,12 @@ PIXI.Node.prototype.getLineConnectedCallback = function getLineConnectedCallback
     node.controlled[activatingEntity.id] = true;
     _doCaptureDetectionCheck(node, activatingEntity);
     _expandAIControl(node, activatingEntity);
-    if (node._nodeSpecificCallback(node, activatingEntity)) {
+    if (node._nodeSpecificCallback(activatingEntity)) {
        node._nodeSpecificCallback = noop;
     }
   };
 };
-PIXI.Node.prototype._nodeSpecificCallback = function _nodeSpecificCallback(node, activatingEntity) {
+PIXI.Node.prototype._nodeSpecificCallback = function _nodeSpecificCallback(activatingEntity) {
   return;
 };
 
@@ -451,10 +428,10 @@ PIXI.StartNode = function (x, y, rank) {
   PIXI.Node.call(this, textures.startNode, x, y, NODE_SIZE, rank, true, false);
 };
 PIXI.StartNode.prototype = Object.create(PIXI.Node.prototype);
-PIXI.StartNode.prototype.constructor = PIXI.Node;
-PIXI.StartNode.prototype._nodeSpecificCallback = function _nodeSpecificCallback(node, activatingEntity) {
+PIXI.StartNode.prototype.constructor = PIXI.StartNode;
+PIXI.StartNode.prototype._nodeSpecificCallback = function _nodeSpecificCallback(activatingEntity) {
   if (activatingEntity.equals(GAME_ENTITIES.AI)) {
-    console.log('OH SNAP, game over.');
+    Log.info('Game Over: You lose');
     GAME_ENTITIES.PC.active = false;
     return true;
   }
@@ -464,20 +441,20 @@ PIXI.BlankNode = function (x, y, rank) {
   PIXI.Node.call(this, textures.blankNode, x, y, NODE_SIZE, rank, false, false);
 };
 PIXI.BlankNode.prototype = Object.create(PIXI.Node.prototype);
-PIXI.BlankNode.prototype.constructor = PIXI.Node;
+PIXI.BlankNode.prototype.constructor = PIXI.BlankNode;
 
 PIXI.CriticalNode = function (x, y, rank) {
   PIXI.Node.call(this, textures.criticalNode, x, y, NODE_SIZE, rank, false, false);
   GAME_ENTITIES.CRITICAL_NODES++;
 };
 PIXI.CriticalNode.prototype = Object.create(PIXI.Node.prototype);
-PIXI.CriticalNode.prototype.constructor = PIXI.Node;
-PIXI.CriticalNode.prototype._nodeSpecificCallback = function _nodeSpecificCallback(node, activatingEntity) {
+PIXI.CriticalNode.prototype.constructor = PIXI.CriticalNode;
+PIXI.CriticalNode.prototype._nodeSpecificCallback = function _nodeSpecificCallback(activatingEntity) {
   if (activatingEntity.equals(GAME_ENTITIES.PC)) {
     GAME_ENTITIES.CRITICAL_NODES--;
-    console.log('one down, ' + GAME_ENTITIES.CRITICAL_NODES + ' to go.');
+    Log.info('One down, ' + GAME_ENTITIES.CRITICAL_NODES + ' to go.');
     if (GAME_ENTITIES.CRITICAL_NODES === 0) {
-      console.log('oh wait, you won!');
+      Log.info('Game Over: You win!');
       GAME_ENTITIES.AI.active = false;
     }
     return true;
@@ -488,10 +465,10 @@ PIXI.DataNode = function (x, y, rank) {
   PIXI.Node.call(this, textures.dataNode, x, y, NODE_SIZE, rank, false, false);
 };
 PIXI.DataNode.prototype = Object.create(PIXI.Node.prototype);
-PIXI.DataNode.prototype.constructor = PIXI.Node;
-PIXI.DataNode.prototype._nodeSpecificCallback = function _nodeSpecificCallback(node, activatingEntity) {
+PIXI.DataNode.prototype.constructor = PIXI.DataNode;
+PIXI.DataNode.prototype._nodeSpecificCallback = function _nodeSpecificCallback(activatingEntity) {
   if (activatingEntity.equals(GAME_ENTITIES.PC)) {
-    console.log('dolla dolla bill ya\'ll.');
+    Log.info('Data node captured: @TODO add stuff to bag');
     return true;
   }
 };
@@ -500,11 +477,17 @@ PIXI.SecurityNode = function (x, y, rank) {
   PIXI.Node.call(this, textures.securityNode, x, y, NODE_SIZE, rank, false, true);
 };
 PIXI.SecurityNode.prototype = Object.create(PIXI.Node.prototype);
-PIXI.SecurityNode.prototype.constructor = PIXI.Node;
-PIXI.SecurityNode.prototype._nodeSpecificCallback = function _nodeSpecificCallback(node, activatingEntity) {
+PIXI.SecurityNode.prototype.constructor = PIXI.SecurityNode;
+PIXI.SecurityNode.prototype._nodeSpecificCallback = function _nodeSpecificCallback(activatingEntity) {
   if (activatingEntity.equals(GAME_ENTITIES.PC)) {
-    console.log('way to win big.');
     GAME_ENTITIES.AI.active = false;
+    Log.info('Game Over: You win!');
+    _.each(NODE_MAP, function (node) {
+      if (node instanceof PIXI.DataNode) {
+        // fake capturing any data node
+        node._nodeSpecificCallback(activatingEntity);
+      }
+    });
     return true;
   }
 };
@@ -513,23 +496,21 @@ PIXI.UtilityNode = function (x, y, rank) {
   PIXI.Node.call(this, textures.utilityNode, x, y, NODE_SIZE, rank, false, false);
 };
 PIXI.UtilityNode.prototype = Object.create(PIXI.Node.prototype);
-PIXI.UtilityNode.prototype.constructor = PIXI.Node;
-PIXI.UtilityNode.prototype._nodeSpecificCallback = function _nodeSpecificCallback(node, activatingEntity) {
-  if (activatingEntity.equals(GAME_ENTITIES.PC)) {
-    console.log('::waggles fingers::');
-    return true;
-  }
+PIXI.UtilityNode.prototype.constructor = PIXI.UtilityNode;
+PIXI.UtilityNode.prototype._nodeSpecificCallback = function _nodeSpecificCallback(activatingEntity) {
+  Log.error('UtilityNode should not be used directly, just as a base class for another node type');
 };
 
 PIXI.ClearanceNode = function (x, y, rank) {
   PIXI.UtilityNode.call(this, x, y, rank);
 };
 PIXI.ClearanceNode.prototype = Object.create(PIXI.Node.prototype);
-PIXI.ClearanceNode.prototype.constructor = PIXI.Node;
-PIXI.ClearanceNode.prototype._nodeSpecificCallback = function _nodeSpecificCallback(node, activatingEntity) {
+PIXI.ClearanceNode.prototype.constructor = PIXI.ClearanceNode;
+PIXI.ClearanceNode.prototype._nodeSpecificCallback = function _nodeSpecificCallback(activatingEntity) {
   if (activatingEntity.equals(GAME_ENTITIES.PC)) {
     _.each(NODE_MAP, function(node) {
       if (node instanceof PIXI.DataNode) {
+        Log.debug('Reducing rank on node ' + node.id, node);
         node.adjustRank(-1);
       }
     });
@@ -541,10 +522,11 @@ PIXI.SoftenNode = function (x, y, rank) {
   PIXI.UtilityNode.call(this, x, y, rank);
 };
 PIXI.SoftenNode.prototype = Object.create(PIXI.Node.prototype);
-PIXI.SoftenNode.prototype.constructor = PIXI.Node;
-PIXI.SoftenNode.prototype._nodeSpecificCallback = function _nodeSpecificCallback(node, activatingEntity) {
+PIXI.SoftenNode.prototype.constructor = PIXI.SoftenNodeI;
+PIXI.SoftenNode.prototype._nodeSpecificCallback = function _nodeSpecificCallback(activatingEntity) {
   if (activatingEntity.equals(GAME_ENTITIES.PC)) {
     _.each(this.getTargetNodes(), function(node) {
+      Log.debug('Reducing rank on ' + node.id, node);
       node.adjustRank(-1);
     });
     return true;
@@ -556,23 +538,23 @@ PIXI.TransferNode = function (x, y, rank) {
 };
 PIXI.TransferNode.prototype = Object.create(PIXI.Node.prototype);
 PIXI.TransferNode.prototype.constructor = PIXI.Node;
-PIXI.TransferNode.prototype._nodeSpecificCallback = function _nodeSpecificCallback(node, activatingEntity) {
+PIXI.TransferNode.prototype._nodeSpecificCallback = function _nodeSpecificCallback(activatingEntity) {
   if (activatingEntity.equals(GAME_ENTITIES.PC)) {
-    var max = NODE_MAP.length-1,
-      soften, harden;
-
-    do {
-      soften = _.random(0, max);
-    }
-    while (NODE_MAP[soften] instanceof PIXI.StartNode ||
-            NODE_MAP[soften] instanceof PIXI.SecurityNode);
+    var validNodes = _.filter(NODE_MAP, function() {
+      return !(NODE_MAP[soften] instanceof PIXI.StartNode ||
+                NODE_MAP[soften] instanceof PIXI.SecurityNode)
+    });
+    var max = validNodes.length-1,
+      soften = _.random(0, max),
+      harden;
 
     do {
       harden = _.random(0, max);
     }
-    while (harden === soften ||
-            NODE_MAP[harden] instanceof PIXI.StartNode ||
-            NODE_MAP[harden] instanceof PIXI.SecurityNode);
+    while (harden === soften);
+
+    Log.debug('Reducing rank on node ' + soften, NODE_MAP[soften]);
+    Log.debug('Increasing rank on node ' + harden, NODE_MAP[harden]);
 
     NODE_MAP[soften].adjustRank(-2);
     NODE_MAP[harden].adjustRank(2);
@@ -585,13 +567,14 @@ PIXI.SpamNode = function (x, y, rank) {
 };
 PIXI.SpamNode.prototype = Object.create(PIXI.Node.prototype);
 PIXI.SpamNode.prototype.constructor = PIXI.Node;
-PIXI.SpamNode.prototype._nodeSpecificCallback = function _nodeSpecificCallback(node, activatingEntity) {
+PIXI.SpamNode.prototype._nodeSpecificCallback = function _nodeSpecificCallback(activatingEntity) {
   if (activatingEntity.equals(GAME_ENTITIES.PC)) {
     GAME_ENTITIES.AI.speedAdjustment = 0.5;
+    Log.debug('Reducing AI speed to ' + GAME_ENTITIES.AI.speedAdjustment);
     setTimeout(function() {
       GAME_ENTITIES.AI.speedAdjustment = 1;
+      Log.debug('Restoring AI speed to ' + GAME_ENTITIES.AI.speedAdjustment);
     }, 5000);
-    console.log('::waggles fingers::');
     return true;
   }
 };
@@ -611,7 +594,7 @@ PIXI.SpamNode.prototype._nodeSpecificCallback = function _nodeSpecificCallback(n
 */
 var _doAIDetectionRoll = function _doAIDetectionRoll(targetNumber) {
   var aiRoll = _.random(1, 100);
-  console.log(aiRoll, '<', targetNumber);
+  Log.debug(aiRoll + '<' + targetNumber);
   if (aiRoll < targetNumber) {
     GAME_ENTITIES.AI.active = true;
     _.each(NODE_MAP, function (n) {
@@ -647,4 +630,34 @@ var _expandAIControl = function _expandAIControl(node, activatingEntity) {
       target.activate(GAME_ENTITIES.AI);
     });
   }
+};
+
+/*
+  8888888888        888                           d8b                   888b     d888        888   888                  888         
+  888               888                           Y8P                   8888b   d8888        888   888                  888         
+  888               888                                                 88888b.d88888        888   888                  888         
+  8888888   888  888888888 .d88b. 88888b. .d8888b 888 .d88b. 88888b.    888Y88888P888 .d88b. 88888888888b.  .d88b.  .d88888.d8888b  
+  888       `Y8bd8P'888   d8P  Y8b888 "88b88K     888d88""88b888 "88b   888 Y888P 888d8P  Y8b888   888 "88bd88""88bd88" 88888K      
+  888         X88K  888   88888888888  888"Y8888b.888888  888888  888   888  Y8P  88888888888888   888  888888  888888  888"Y8888b. 
+  888       .d8""8b.Y88b. Y8b.    888  888     X88888Y88..88P888  888   888   "   888Y8b.    Y88b. 888  888Y88..88PY88b 888     X88 
+  8888888888888  888 "Y888 "Y8888 888  888 88888P'888 "Y88P" 888  888   888       888 "Y8888  "Y888888  888 "Y88P"  "Y88888 88888P' 
+*/
+PIXI.Point.prototype.getAngle = function getAngle(point) {
+  var angle = Math.atan2(point.y - this.y, point.x - this.x);
+
+  // cache
+  return angle;
+};
+
+PIXI.Point.prototype.getDistance = function getDistance(point) {
+  var distance = Math.sqrt(Math.pow(point.x - this.x, 2) + Math.pow(point.y - this.y, 2));
+
+  return distance;
+};
+
+PIXI.Point.prototype.getPointAtAngle = function getPointAtAngle(angle, distance) {
+  return new PIXI.Point(
+        this.x + Math.cos(angle) * distance,
+        this.y + Math.sin(angle) * distance
+      );
 };

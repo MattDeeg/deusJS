@@ -11,6 +11,7 @@
   </style>
   <script src='js/Underscore-min.js'></script>
   <script src='js/pixi.js'></script>
+  <script src='js/utility.js'></script>
   <script src='js/classes.js'></script>
 
 </head>
@@ -25,6 +26,7 @@
     lineLength = 0;
   // create a renderer instance
   var renderer = new PIXI.autoDetectRenderer(stageWidth, stageHeight, undefined, undefined, true);
+  renderer.view.oncontextmenu = function() {return false};
   
   var heightRatio = window.innerHeight / stageHeight,
     widthRatio = window.innerWidth / stageWidth,
