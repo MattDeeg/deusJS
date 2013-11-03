@@ -87,12 +87,6 @@ PIXI.NodeConnector.prototype.setActive = function setActive(activatingEntity, ca
   this.isActive = true;
 };
 
-PIXI.NodeConnector.prototype.moveToPoint = function moveToPoint(point) {
-  this.moveTo(point.x, point.y);
-};
-PIXI.NodeConnector.prototype.lineToPoint = function lineToPoint(point) {
-  this.lineTo(point.x, point.y);
-};
 PIXI.NodeConnector.prototype.reverse = function reverse() {
   var p = this.point1;
   this.point1 = this.point2;
@@ -204,7 +198,7 @@ PIXI.NodeIcon.prototype.drawBadge = function() {
 
   this.badge.clear();
   this.badge.lineStyle(0);
-  this.badge.beginFill(0x000000, 0.8);
+  this.badge.beginFill(0xFF0000, 0.8);
   var badgeSize = 10;
   this.badge.drawCircle(this.nodeSize, 0, badgeSize);
   this.badge.endFill();
@@ -226,14 +220,123 @@ PIXI.NodeIcon.prototype.update = function update() {
 };
 
 /*
-  888b    888             888         
-  8888b   888             888         
-  88888b  888             888         
-  888Y88b 888 .d88b.  .d88888 .d88b.  
-  888 Y88b888d88""88bd88" 888d8P  Y8b 
-  888  Y88888888  888888  88888888888 
-  888   Y8888Y88..88PY88b 888Y8b.     
-  888    Y888 "Y88P"  "Y88888 "Y8888  
+	888b    888             888         .d88888b.                        888
+	8888b   888             888        d88P" "Y88b                       888
+	88888b  888             888        888     888                       888
+	888Y88b 888 .d88b.  .d88888 .d88b. 888     888888  888 .d88b. 888d888888 8888b. 888  888
+	888 Y88b888d88""88bd88" 888d8P  Y8b888     888888  888d8P  Y8b888P"  888    "88b888  888
+	888  Y88888888  888888  88888888888888     888Y88  88P88888888888    888.d888888888  888
+	888   Y8888Y88..88PY88b 888Y8b.    Y88b. .d88P Y8bd8P Y8b.    888    888888  888Y88b 888
+	888    Y888 "Y88P"  "Y88888 "Y8888  "Y88888P"   Y88P   "Y8888 888    888"Y888888 "Y88888
+	                                                                                     888
+	                                                                                Y8b d88P
+	                                                                                 "Y88P"
+*/
+PIXI.NodeOverlay = function() {
+  PIXI.DisplayObjectContainer.call(this);
+  this.drawBackground();
+	this.addChild(this.border);
+
+  var capture = this.drawButton(0, -25);
+  var nuke = this.drawButton(-37, 0);
+  var fortify = this.drawButton(37, 0);
+  var iunno = this.drawButton(0, 25);
+
+  var self = this;
+  capture.click = function() {
+	  var node = self.parent;
+    node.activate(GAME_ENTITIES.PC);
+		self.visible = false;
+  };
+  nuke.click = function () {
+		self.visible = false;
+  };
+  fortify.click = function() {
+		self.visible = false;
+  };
+  iunno.click = function() {
+		self.visible = false;
+  };
+
+	this.visible = false;
+	this.interactive = true;
+
+	var self = this;
+	this.mouseout = function() {
+		self.visible = false;
+	};
+};
+PIXI.NodeOverlay.prototype = Object.create(PIXI.DisplayObjectContainer.prototype);
+PIXI.NodeOverlay.prototype.constructor = PIXI.NodeOverlay;
+
+PIXI.NodeOverlay.prototype.drawBackground = function() {
+	var border = this.border || new PIXI.Graphics();
+
+	var pointArray = [
+		new PIXI.Point(12, -50),
+		new PIXI.Point(32, -25),
+		new PIXI.Point(50, -25),
+		new PIXI.Point(70, 0),
+		new PIXI.Point(50, 25),
+		new PIXI.Point(32, 25),
+		new PIXI.Point(12, 50),
+		new PIXI.Point(-12, 50),
+		new PIXI.Point(-32, 25),
+		new PIXI.Point(-50, 25),
+		new PIXI.Point(-70, 0),
+		new PIXI.Point(-50, -25),
+		new PIXI.Point(-32, -25),
+		new PIXI.Point(-12, -50)
+	];
+
+	border.clear();
+	border.lineStyle(3, 0XB17E3A);
+	border.beginFill(0X935F26, 0.6);
+	border.moveToPoint(pointArray[pointArray.length - 1]);
+	_.each(pointArray, function(point) {
+		border.lineToPoint(point);
+	});
+	border.endFill();
+	border.hitArea = new PIXI.Polygon(pointArray);
+
+	this.border = border;
+};
+
+PIXI.NodeOverlay.prototype.drawButton = function (x, y) {
+	var button = new PIXI.Graphics();
+
+	var pointArray = [
+		new PIXI.Point(x + 8, y - 20),
+		new PIXI.Point(x + 25, y),
+		new PIXI.Point(x + 8, y + 20),
+		new PIXI.Point(x - 8, y + 20),
+		new PIXI.Point(x - 25, y),
+		new PIXI.Point(x - 8, y - 20)
+	];
+
+	button.lineStyle(3, 0XB17E3A);
+	button.beginFill(0XB17E3A, 0.6);
+	button.moveToPoint(pointArray[pointArray.length - 1]);
+	_.each(pointArray, function(point) {
+		button.lineToPoint(point);
+	});
+	button.endFill();
+	button.hitArea = new PIXI.Polygon(pointArray);
+	button.buttonMode = true;
+	button.interactive = true;
+
+	this.addChild(button);
+	return button;
+};
+/*
+  888b    888             888
+  8888b   888             888
+  88888b  888             888
+  888Y88b 888 .d88b.  .d88888 .d88b.
+  888 Y88b888d88""88bd88" 888d8P  Y8b
+  888  Y88888888  888888  88888888888
+  888   Y8888Y88..88PY88b 888Y8b.
+  888    Y888 "Y88P"  "Y88888 "Y8888
 */
 
 var NODE_ID_COUNTER = 0,
@@ -248,18 +351,24 @@ PIXI.Node = function (texture, x, y, nodeSize, rank, controlledByPC, controlledB
   this.fortified = false;
   this.activated = [!!controlledByPC, !!controlledByAI];
   this.controlled = [!!controlledByPC, !!controlledByAI];
-  this.addChild(new PIXI.NodeIcon(texture, nodeSize));
+
+  this.icon = new PIXI.NodeIcon(texture, nodeSize)
+  this.overlay = new PIXI.NodeOverlay();
+  this.addChild(this.icon);
+  this.addChild(this.overlay);
+
   this.setRank(rank);
-  
+
   var self = this;
   this.buttonMode = true;
-  this.setInteractive(true);
+  this.interactive = true;
   this.click = function(data){
     var which = data.originalEvent.which;
     if (which === 1) { // left click
       if (GAME_ENTITIES.PC.active) {
-        self.activate(GAME_ENTITIES.PC);
-        self.fortify(GAME_ENTITIES.PC);
+      	self.overlay.visible = true;
+        // self.activate(GAME_ENTITIES.PC);
+        // self.fortify(GAME_ENTITIES.PC);
       }
     }
     else if (which === 3) { // right click
@@ -281,7 +390,7 @@ PIXI.Node.prototype.adjustRank = function adjustRank(adjustment) {
 };
 PIXI.Node.prototype.setRank = function setRank(newRank) {
   this.rank = Math.max(0, newRank);
-  this.children[0].update();
+  this.icon.update();
 };
 
 PIXI.Node.prototype.update = function update() {
@@ -662,4 +771,11 @@ PIXI.Point.prototype.getPointAtAngle = function getPointAtAngle(angle, distance)
         this.x + Math.cos(angle) * distance,
         this.y + Math.sin(angle) * distance
       );
+};
+
+PIXI.Graphics.prototype.moveToPoint = function moveToPoint(point) {
+  this.moveTo(point.x, point.y);
+};
+PIXI.Graphics.prototype.lineToPoint = function lineToPoint(point) {
+  this.lineTo(point.x, point.y);
 };
