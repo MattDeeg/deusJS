@@ -70,7 +70,7 @@ PIXI.NodeConnector.prototype.update = function update() {
     this.activePercent = Math.min(1, this.activePercent + (this.ACTIVE_GROWTH_PERCENT * this.activatingEntity.speedAdjustment));
     this.isActive = this.activePercent < 1;
     this.drawLine();
-    if (!this.isActive && this.callback) {
+    if (!this.isActive) {
       this.callback();
     }
   }
@@ -83,7 +83,7 @@ PIXI.NodeConnector.prototype.setColor = function setColor(color) {
 PIXI.NodeConnector.prototype.setActive = function setActive(activatingEntity, callback) {
   this.activatingEntity = activatingEntity;
 
-  this.callback = callback;
+  this.callback = callback || noop;
   this.isActive = true;
 };
 
@@ -239,19 +239,25 @@ PIXI.NodeOverlay = function() {
 
   var capture = this.drawButton(0, -25);
   var nuke = this.drawButton(-37, 0);
-  var fortify = this.drawButton(37, 0);
-  var iunno = this.drawButton(0, 25);
+  var iunno = this.drawButton(37, 0);
+  var fortify = this.drawButton(0, 25);
 
   capture.click = _.bind(function() {
     this.parent.activate(GAME_ENTITIES.PC);
 		this.visible = false;
   }, this);
+
   nuke.click = _.bind(function () {
 		this.visible = false;
   }, this);
+
   fortify.click = _.bind(function() {
-		this.visible = false;
+		if (this.parent.controlled[GAME_ENTITIES.PC.id]) {
+  		this.parent.fortify(GAME_ENTITIES.PC);
+  	}
+  	this.visible = false;
   }, this);
+
   iunno.click = _.bind(function() {
 		this.visible = false;
   }, this);
@@ -261,7 +267,7 @@ PIXI.NodeOverlay = function() {
 
 	this.mouseout = _.bind(function() {
 		this.visible = false;
-	}, this)sho;
+	}, this);
 };
 PIXI.NodeOverlay.prototype = Object.create(PIXI.DisplayObjectContainer.prototype);
 PIXI.NodeOverlay.prototype.constructor = PIXI.NodeOverlay;
@@ -288,7 +294,7 @@ PIXI.NodeOverlay.prototype.drawBackground = function() {
 
 	border.clear();
 	border.lineStyle(3, 0XB17E3A);
-	border.beginFill(0X935F26, 0.6);
+	border.beginFill(0X935F26, 0.7);
 	border.moveToPoint(pointArray[pointArray.length - 1]);
 	_.each(pointArray, function(point) {
 		border.lineToPoint(point);
@@ -326,6 +332,59 @@ PIXI.NodeOverlay.prototype.drawButton = function (x, y) {
 	return button;
 };
 /*
+	888b    888             888        8888888b.
+	8888b   888             888        888   Y88b
+	88888b  888             888        888    888
+	888Y88b 888 .d88b.  .d88888 .d88b. 888   d88P888d888 .d88b.  .d88b. 888d888 .d88b. .d8888b .d8888b
+	888 Y88b888d88""88bd88" 888d8P  Y8b8888888P" 888P"  d88""88bd88P"88b888P"  d8P  Y8b88K     88K
+	888  Y88888888  888888  88888888888888       888    888  888888  888888    88888888"Y8888b."Y8888b.
+	888   Y8888Y88..88PY88b 888Y8b.    888       888    Y88..88PY88b 888888    Y8b.         X88     X88
+	888    Y888 "Y88P"  "Y88888 "Y8888 888       888     "Y88P"  "Y88888888     "Y8888  88888P' 88888P'
+	                                                                 888
+	                                                            Y8b d88P
+	                                                             "Y88P"
+*/
+PIXI.NodeProgress = function() {
+  PIXI.DisplayObjectContainer.call(this);
+	this.speed = 0.005;
+	this.percent = 0;
+	this.visible = false;
+	this.bubble = new PIXI.Graphics();
+	this.percentText = new PIXI.Text('0%', {font: "12px Snippet", fill: "white", align: "center"});
+	this.percentText.anchor.x = 0.5;
+	this.percentText.anchor.y = 0.5;
+
+	this.addChild(this.bubble);
+	this.bubble.addChild(this.percentText);
+	this.callback = noop;
+};
+PIXI.NodeProgress.prototype = Object.create(PIXI.DisplayObjectContainer.prototype);
+PIXI.NodeProgress.prototype.constructor = PIXI.NodeProgress;
+
+PIXI.NodeProgress.prototype.setActive = function setActive(activatingEntity, callback) {
+	this.visible = true;
+	this.callback = callback || noop;
+
+	this.bubble.clear();
+	this.bubble.beginFill(activatingEntity.color, 0.9);
+	this.bubble.drawRect(-17, -24, 34, 16);
+	this.bubble.endFill();
+
+	this.percentText.position = new PIXI.Point(0, -16);
+};
+
+PIXI.NodeProgress.prototype.update = function update() {
+	if (this.visible) {
+		this.percent += this.speed;
+		this.percentText.setText(Math.floor(this.percent * 100) + '%');
+		if (this.percent >= 1) {
+			this.visible = false;
+			this.callback();
+		}
+	}
+};
+
+/*
   888b    888             888
   8888b   888             888
   88888b  888             888
@@ -351,8 +410,10 @@ PIXI.Node = function (texture, x, y, nodeSize, rank, controlledByPC, controlledB
 
   this.icon = new PIXI.NodeIcon(texture, nodeSize)
   this.overlay = new PIXI.NodeOverlay();
+  this.progress = new PIXI.NodeProgress();
   this.addChild(this.icon);
   this.addChild(this.overlay);
+  this.addChild(this.progress);
 
   this.setRank(rank);
 
@@ -390,6 +451,11 @@ PIXI.Node.prototype.setRank = function setRank(newRank) {
 };
 
 PIXI.Node.prototype.update = function update() {
+	_.each(this.children, function(child) {
+    if (child.update) {
+      child.update();
+    }
+  });
 };
 
 PIXI.Node.prototype.getAngle = function getAngle(node) {
@@ -427,17 +493,24 @@ PIXI.Node.prototype.addConnection = function addConnection(node, isOneWay) {
   }
 };
 
-// var speed = ((15 * activatingEntity.stealth + 10 * activatingEntity.capture) / (this.rank + 1)) / 300,
 PIXI.Node.prototype.getLineConnectedCallback = function getLineConnectedCallback(activatingEntity) {
-  var node = this;
-  return function() {
-    node.controlled[activatingEntity.id] = true;
-    _doCaptureDetectionCheck(node, activatingEntity);
-    _expandAIControl(node, activatingEntity);
-    if (node._nodeSpecificCallback(activatingEntity)) {
-       node._nodeSpecificCallback = noop;
+	var speed = ((15 * activatingEntity.stealth + 10 * activatingEntity.capture) / (this.rank + 1)) / 600;
+	Log.debug('capture speed', speed);
+	this.progress.speed = speed;
+  return _.bind(function() {
+  	this.progress.setActive(activatingEntity, this.getNodeCapturedCallback(activatingEntity));
+  }, this);
+};
+
+PIXI.Node.prototype.getNodeCapturedCallback = function getNodeCapturedCallback(activatingEntity) {
+  return _.bind(function() {
+    this.controlled[activatingEntity.id] = true;
+    _doCaptureDetectionCheck(this, activatingEntity);
+    _expandAIControl(this, activatingEntity);
+    if (this._nodeSpecificCallback(activatingEntity)) {
+       this._nodeSpecificCallback = noop;
     }
-  };
+  }, this);
 };
 PIXI.Node.prototype._nodeSpecificCallback = function _nodeSpecificCallback(activatingEntity) {
   return;
@@ -466,7 +539,7 @@ PIXI.Node.prototype.getTargetNodes = function getTargetNodes() {
 
 PIXI.Node.prototype.activate = function activate(activatingEntity) {
   var foundPairs = [],
-    callback = this.getLineConnectedCallback(activatingEntity);
+    lineCallback = this.getLineConnectedCallback(activatingEntity);
   // if it's already controlled or activated by the activating entity, bail off
   var id = this.id;
   if (this.controlled[activatingEntity.id] ||
@@ -497,7 +570,7 @@ PIXI.Node.prototype.activate = function activate(activatingEntity) {
       if (mapLine.starting.id === id) {
         mapLine.line.reverse();
       }
-      mapLine.line.setActive(activatingEntity, callback);
+      mapLine.line.setActive(activatingEntity, lineCallback);
       isActivated = true;
     }
   });
