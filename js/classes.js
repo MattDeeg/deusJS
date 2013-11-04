@@ -389,12 +389,14 @@ PIXI.NodeProgress.prototype.setActive = function setActive(activatingEntity, cal
 
 PIXI.NodeProgress.prototype.update = function update() {
 	_.each(this.children, function(bubble) {
-		this.percent[bubble.activatingEntity.id] += this.speed;
-		var percent = this.percent[bubble.activatingEntity.id];
-		bubble.children[0].setText(Math.floor(percent * 100) + '%');
-		if (percent >= 1) {
-			this.removeChild(bubble);
-			this.callback[bubble.activatingEntity.id]();
+		if (bubble.activatingEntity.active) {
+			this.percent[bubble.activatingEntity.id] += this.speed;
+			var percent = this.percent[bubble.activatingEntity.id];
+			bubble.children[0].setText(Math.floor(percent * 100) + '%');
+			if (percent >= 1) {
+				this.removeChild(bubble);
+				this.callback[bubble.activatingEntity.id]();
+			}
 		}
 	}, this);
 };
