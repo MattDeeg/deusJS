@@ -66,7 +66,7 @@ PIXI.NodeConnector.prototype.NEUTRAL_COLOR = 0xF2F2F2;
 PIXI.NodeConnector.prototype.ACTIVE_GROWTH_PERCENT = 0.01;
 
 PIXI.NodeConnector.prototype.update = function update() {
-  if (this.isActive) {
+  if (this.isActive && this.activatingEntity.active) {
     this.activePercent = Math.min(1, this.activePercent + (this.ACTIVE_GROWTH_PERCENT * this.activatingEntity.speedAdjustment));
     this.isActive = this.activePercent < 1;
     this.drawLine();
@@ -178,12 +178,14 @@ PIXI.NodeIcon.prototype = Object.create(PIXI.DisplayObjectContainer.prototype);
 PIXI.NodeIcon.prototype.constructor = PIXI.NodeIcon;
 
 PIXI.NodeIcon.prototype.drawBase = function() {
-  var baseTop = 2;
-  this.base = this.base || new PIXI.Graphics();
+  var baseTop = 2,
+  	baseColor = (this.parent && this.parent.controlled[GAME_ENTITIES.PC.id]) ? 0x0891D1 : 0x998F8D,
+  	lineColor = (this.parent && this.parent.controlled[GAME_ENTITIES.AI.id]) ? 0xE80C00 : 0xC3B7B3;
 
+  this.base = this.base || new PIXI.Graphics();
   this.base.clear();
-  this.base.beginFill(0x998F8D);
-  this.base.lineStyle(5, 0xC3B7B3);
+  this.base.beginFill(baseColor);
+  this.base.lineStyle(5, lineColor);
   this.base.moveTo(this.nodeSize / 2, baseTop);
   this.base.lineTo(-this.nodeSize / 2, baseTop);
   this.base.lineTo(-this.nodeSize, baseTop + 10);
@@ -215,8 +217,9 @@ PIXI.NodeIcon.prototype.drawBadge = function() {
   this.badge.addChild(badgeText);
 };
 
-PIXI.NodeIcon.prototype.update = function update() {
-  this.drawBadge();
+PIXI.NodeIcon.prototype.update = function() {
+	this.drawBase();
+	this.drawBadge();
 };
 
 /*
@@ -237,10 +240,10 @@ PIXI.NodeOverlay = function() {
   this.drawBackground();
 	this.addChild(this.border);
 
-  var capture = this.drawButton(0, -25);
-  var nuke = this.drawButton(-37, 0);
-  var iunno = this.drawButton(37, 0);
-  var fortify = this.drawButton(0, 25);
+  var capture = this.drawButton(0, -25, 'capture');
+  var nuke = this.drawButton(-37, 0, 'nuke');
+  var iunno = this.drawButton(37, 0, 'iunno');
+  var fortify = this.drawButton(0, 25, 'fortify');
 
   capture.click = _.bind(function() {
     this.parent.activate(GAME_ENTITIES.PC);
@@ -305,7 +308,7 @@ PIXI.NodeOverlay.prototype.drawBackground = function() {
 	this.border = border;
 };
 
-PIXI.NodeOverlay.prototype.drawButton = function (x, y) {
+PIXI.NodeOverlay.prototype.drawButton = function (x, y, text) {
 	var button = new PIXI.Graphics();
 
 	var pointArray = [
@@ -328,6 +331,10 @@ PIXI.NodeOverlay.prototype.drawButton = function (x, y) {
 	button.buttonMode = true;
 	button.interactive = true;
 
+	var label = new PIXI.Text(text, {font: "12px Snippet", fill: "white", align: "center"});
+	label.anchor = new PIXI.Point(0.5,0.5);
+	label.position = new PIXI.Point(x,y);
+	button.addChild(label)
 	this.addChild(button);
 	return button;
 };
@@ -415,12 +422,12 @@ PIXI.Node = function (texture, x, y, nodeSize, rank, controlledByPC, controlledB
   this.activated = [!!controlledByPC, !!controlledByAI];
   this.controlled = [!!controlledByPC, !!controlledByAI];
 
-  this.icon = new PIXI.NodeIcon(texture, nodeSize)
+  this.icon = new PIXI.NodeIcon(texture, nodeSize);
   this.overlay = new PIXI.NodeOverlay();
   this.progress = new PIXI.NodeProgress();
   this.addChild(this.icon);
-  this.addChild(this.overlay);
   this.addChild(this.progress);
+  this.addChild(this.overlay);
 
   this.setRank(rank);
 
