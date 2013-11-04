@@ -246,11 +246,12 @@ PIXI.NodeOverlay = function() {
   var fortify = this.drawButton(0, 25, 'fortify');
 
   capture.click = _.bind(function() {
-    this.parent.activate(GAME_ENTITIES.PC);
+    this.parent.capture(GAME_ENTITIES.PC);
 		this.visible = false;
   }, this);
 
   nuke.click = _.bind(function () {
+    this.parent.nuke(GAME_ENTITIES.PC);
 		this.visible = false;
   }, this);
 
@@ -505,7 +506,16 @@ PIXI.Node.prototype.addConnection = function addConnection(node, isOneWay) {
   }
 };
 
-PIXI.Node.prototype.getLineConnectedCallback = function getLineConnectedCallback(activatingEntity) {
+PIXI.Node.prototype.getNukeLineCallback = function getNukeLineCallback(activatingEntity) {
+  return _.bind(function() {
+    this.controlled[activatingEntity.id] = true;
+    if (this._nodeSpecificCallback(activatingEntity)) {
+       this._nodeSpecificCallback = noop;
+    }
+  }, this);
+};
+
+PIXI.Node.prototype.getCaptureLineCallback = function getCaptureLineCallback(activatingEntity) {
 	var speed = ((15 * activatingEntity.stealth + 10 * activatingEntity.capture) / (this.rank + 1)) / 600;
 	this.progress.speed += speed;
   return _.bind(function() {
@@ -548,9 +558,15 @@ PIXI.Node.prototype.getTargetNodes = function getTargetNodes() {
   });
 };
 
-PIXI.Node.prototype.activate = function activate(activatingEntity) {
-  var foundPairs = [],
-    lineCallback = this.getLineConnectedCallback(activatingEntity);
+PIXI.Node.prototype.capture = function capture(activatingEntity) {
+	this.activate(activatingEntity, this.getCaptureLineCallback(activatingEntity));
+};
+PIXI.Node.prototype.nuke = function nuke(activatingEntity) {
+	this.activate(activatingEntity, this.getNukeLineCallback(activatingEntity));
+};
+
+PIXI.Node.prototype.activate = function activate(activatingEntity, callback) {
+  var foundPairs = [];
   // if it's already controlled or activated by the activating entity, bail off
   var id = this.id;
   if (this.controlled[activatingEntity.id] ||
@@ -581,7 +597,7 @@ PIXI.Node.prototype.activate = function activate(activatingEntity) {
       if (mapLine.starting.id === id) {
         mapLine.line.reverse();
       }
-      mapLine.line.setActive(activatingEntity, lineCallback);
+      mapLine.line.setActive(activatingEntity, callback);
       isActivated = true;
     }
   });
@@ -795,7 +811,7 @@ var _doAIDetectionRoll = function _doAIDetectionRoll(targetNumber) {
       if (n.controlled[GAME_ENTITIES.AI.id]) {
         var targetNodes = n.getTargetNodes();
         _.each(targetNodes, function(target) {
-          target.activate(GAME_ENTITIES.AI);
+          target.capture(GAME_ENTITIES.AI);
         });
       }
     });
@@ -821,7 +837,7 @@ var _doFortifyDetectionCheck = function _doFortifyDetectionCheck(node, activatin
 var _expandAIControl = function _expandAIControl(node, activatingEntity) {
   if (activatingEntity.equals(GAME_ENTITIES.AI)) {
     _.each(node.getTargetNodes(), function(target) {
-      target.activate(GAME_ENTITIES.AI);
+      target.capture(GAME_ENTITIES.AI);
     });
   }
 };
