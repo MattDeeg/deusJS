@@ -346,7 +346,7 @@ PIXI.NodeOverlay.prototype.drawButton = function (x, y) {
 */
 PIXI.NodeProgress = function() {
   PIXI.DisplayObjectContainer.call(this);
-	this.speed = 0.005;
+	this.speed = 0.001;
 	this.percent = 0;
 	this.visible = false;
 	this.bubble = new PIXI.Graphics();
@@ -362,6 +362,7 @@ PIXI.NodeProgress.prototype = Object.create(PIXI.DisplayObjectContainer.prototyp
 PIXI.NodeProgress.prototype.constructor = PIXI.NodeProgress;
 
 PIXI.NodeProgress.prototype.setActive = function setActive(activatingEntity, callback) {
+	this.percent = 0;
 	this.visible = true;
 	this.callback = callback || noop;
 
@@ -495,8 +496,7 @@ PIXI.Node.prototype.addConnection = function addConnection(node, isOneWay) {
 
 PIXI.Node.prototype.getLineConnectedCallback = function getLineConnectedCallback(activatingEntity) {
 	var speed = ((15 * activatingEntity.stealth + 10 * activatingEntity.capture) / (this.rank + 1)) / 600;
-	Log.debug('capture speed', speed);
-	this.progress.speed = speed;
+	this.progress.speed += speed;
   return _.bind(function() {
   	this.progress.setActive(activatingEntity, this.getNodeCapturedCallback(activatingEntity));
   }, this);
@@ -582,9 +582,13 @@ PIXI.Node.prototype.activate = function activate(activatingEntity) {
 
 PIXI.Node.prototype.fortify = function fortify(activatingEntity) {
   if (!this.fortified && this.controlled[activatingEntity.id]) {
-    this.adjustRank(1);
-    this.fortified = true;
-    _doFortifyDetectionCheck(this, activatingEntity);
+		var speed = ((15 * activatingEntity.stealth + 10 * activatingEntity.fortify) / (this.rank + 1)) / 600;
+		this.progress.speed += speed;
+  	this.progress.setActive(activatingEntity, _.bind(function() {
+	    this.adjustRank(1);
+	    this.fortified = true;
+	    _doFortifyDetectionCheck(this, activatingEntity);
+  	}, this));
   }
 };
 
