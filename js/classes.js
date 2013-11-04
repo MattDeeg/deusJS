@@ -347,42 +347,48 @@ PIXI.NodeOverlay.prototype.drawButton = function (x, y) {
 PIXI.NodeProgress = function() {
   PIXI.DisplayObjectContainer.call(this);
 	this.speed = 0.001;
-	this.percent = 0;
-	this.visible = false;
-	this.bubble = new PIXI.Graphics();
-	this.percentText = new PIXI.Text('0%', {font: "12px Snippet", fill: "white", align: "center"});
-	this.percentText.anchor.x = 0.5;
-	this.percentText.anchor.y = 0.5;
+	this.percent = [];
+	this.percent[GAME_ENTITIES.PC.id] = 0;
+	this.percent[GAME_ENTITIES.AI.id] = 0;
 
-	this.addChild(this.bubble);
-	this.bubble.addChild(this.percentText);
-	this.callback = noop;
+	this.callback = [];
+	this.callback[GAME_ENTITIES.PC.id] = noop;
+	this.callback[GAME_ENTITIES.AI.id] = noop;
 };
 PIXI.NodeProgress.prototype = Object.create(PIXI.DisplayObjectContainer.prototype);
 PIXI.NodeProgress.prototype.constructor = PIXI.NodeProgress;
 
 PIXI.NodeProgress.prototype.setActive = function setActive(activatingEntity, callback) {
-	this.percent = 0;
-	this.visible = true;
-	this.callback = callback || noop;
+	this.callback[activatingEntity.id] = callback || noop;
 
-	this.bubble.clear();
-	this.bubble.beginFill(activatingEntity.color, 0.9);
-	this.bubble.drawRect(-17, -24, 34, 16);
-	this.bubble.endFill();
+	var top = -24 * (this.children.length + 1);
 
-	this.percentText.position = new PIXI.Point(0, -16);
+	var bubble = new PIXI.Graphics();
+	bubble.activatingEntity = activatingEntity;
+	var percentText = new PIXI.Text('0%', {font: "12px Snippet", fill: "white", align: "center"});
+	percentText.anchor.x = 0.5;
+	percentText.anchor.y = 0.5;
+
+	bubble.beginFill(activatingEntity.color, 0.9);
+	bubble.drawRect(-17, top, 34, 16);
+	bubble.endFill();
+
+	percentText.position = new PIXI.Point(0, top + 8);
+
+	bubble.addChild(percentText);
+	this.addChild(bubble);
 };
 
 PIXI.NodeProgress.prototype.update = function update() {
-	if (this.visible) {
-		this.percent += this.speed;
-		this.percentText.setText(Math.floor(this.percent * 100) + '%');
-		if (this.percent >= 1) {
-			this.visible = false;
-			this.callback();
+	_.each(this.children, function(bubble) {
+		this.percent[bubble.activatingEntity.id] += this.speed;
+		var percent = this.percent[bubble.activatingEntity.id];
+		bubble.children[0].setText(Math.floor(percent * 100) + '%');
+		if (percent >= 1) {
+			this.removeChild(bubble);
+			this.callback[bubble.activatingEntity.id]();
 		}
-	}
+	}, this);
 };
 
 /*
@@ -425,8 +431,6 @@ PIXI.Node = function (texture, x, y, nodeSize, rank, controlledByPC, controlledB
     if (which === 1) { // left click
       if (GAME_ENTITIES.PC.active) {
       	this.overlay.visible = true;
-        // this.activate(GAME_ENTITIES.PC);
-        // this.fortify(GAME_ENTITIES.PC);
       }
     }
     else if (which === 3) { // right click
