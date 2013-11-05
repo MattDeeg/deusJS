@@ -242,7 +242,7 @@ PIXI.NodeOverlay = function() {
 
   var capture = this.drawButton(0, -25, 'capture');
   var nuke = this.drawButton(-37, 0, 'nuke');
-  var iunno = this.drawButton(37, 0, 'iunno');
+  var spam = this.drawButton(37, 0, 'spam');
   var fortify = this.drawButton(0, 25, 'fortify');
 
   capture.click = _.bind(function() {
@@ -262,7 +262,8 @@ PIXI.NodeOverlay = function() {
   	this.visible = false;
   }, this);
 
-  iunno.click = _.bind(function() {
+  spam.click = _.bind(function() {
+  	_spamAI();
 		this.visible = false;
   }, this);
 
@@ -390,7 +391,7 @@ PIXI.NodeProgress.prototype.setActive = function setActive(activatingEntity, cal
 PIXI.NodeProgress.prototype.update = function update() {
 	_.each(this.children, function(bubble) {
 		if (bubble.activatingEntity.active) {
-			this.percent[bubble.activatingEntity.id] += this.speed;
+			this.percent[bubble.activatingEntity.id] += this.speed * bubble.activatingEntity.speedAdjustment;
 			var percent = this.percent[bubble.activatingEntity.id];
 			bubble.children[0].setText(Math.floor(percent * 100) + '%');
 			if (percent >= 1) {
@@ -781,12 +782,7 @@ PIXI.SpamNode.prototype = Object.create(PIXI.Node.prototype);
 PIXI.SpamNode.prototype.constructor = PIXI.Node;
 PIXI.SpamNode.prototype._nodeSpecificCallback = function _nodeSpecificCallback(activatingEntity) {
   if (activatingEntity.equals(GAME_ENTITIES.PC)) {
-    GAME_ENTITIES.AI.speedAdjustment = 0.5;
-    Log.debug('Reducing AI speed to ' + GAME_ENTITIES.AI.speedAdjustment);
-    setTimeout(function() {
-      GAME_ENTITIES.AI.speedAdjustment = 1;
-      Log.debug('Restoring AI speed to ' + GAME_ENTITIES.AI.speedAdjustment);
-    }, 5000);
+  	_spamAI();
     return true;
   }
 };
@@ -804,6 +800,17 @@ PIXI.SpamNode.prototype._nodeSpecificCallback = function _nodeSpecificCallback(a
                                   Y8b d88P
                                    "Y88P"
 */
+var _spamTimer = null;
+var _spamAI = function _spamAI() {
+	GAME_ENTITIES.AI.speedAdjustment = 0.5;
+  Log.debug('Reducing AI speed to ' + GAME_ENTITIES.AI.speedAdjustment);
+  clearTimeout(_spamTimer);
+  _spamTimer = setTimeout(function() {
+    GAME_ENTITIES.AI.speedAdjustment = 1;
+    Log.debug('Restoring AI speed to ' + GAME_ENTITIES.AI.speedAdjustment);
+  }, 5000);
+};
+
 var _doAIDetectionRoll = function _doAIDetectionRoll(targetNumber) {
   var aiRoll = _.random(1, 100);
   Log.debug(aiRoll + '<' + targetNumber);
